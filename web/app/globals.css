@@ -1,0 +1,113 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --surface-2: #eef0f6;
+  --line: #dfe3ec;
+  --ink: #101828;
+  --muted: #5d6779;
+  --accent: #4338ca;
+  --accent-ink: #ffffff;
+  --accent-soft: #e8e7fb;
+  --refer: #c2410c;
+  --refer-soft: #fff1e8;
+  --routine: #0369a1;
+  --routine-soft: #e6f3fb;
+  --warn: #a16207;
+  --warn-soft: #fdf6dc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0c0f17;
+    --surface: #141926;
+    --surface-2: #1c2232;
+    --line: #2a3144;
+    --ink: #e8ebf3;
+    --muted: #98a1b5;
+    --accent: #8b85f5;
+    --accent-ink: #0c0f17;
+    --accent-soft: #24224a;
+    --refer: #fb923c;
+    --refer-soft: #33200f;
+    --routine: #38bdf8;
+    --routine-soft: #0f2533;
+    --warn: #facc15;
+    --warn-soft: #2e2810;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-refer: var(--refer);
+  --color-refer-soft: var(--refer-soft);
+  --color-routine: var(--routine);
+  --color-routine-soft: var(--routine-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 0.65rem;
+  padding: 0.65rem 0.8rem;
+  font-size: 1rem;
+  outline: none;
+}
+.field:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 0.7rem;
+  padding: 0.7rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.95rem;
+  transition: opacity 0.15s, transform 0.05s;
+}
+.btn:active {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+.btn-ghost {
+  background: var(--surface-2);
+  color: var(--ink);
+}
