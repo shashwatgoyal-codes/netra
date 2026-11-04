@@ -107,6 +107,7 @@ def main() -> None:
     ap.add_argument("--batch", type=int, default=16)
     ap.add_argument("--lr", type=float, default=1e-4)
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--resume", action="store_true", help="continue from artifacts/<model>/last.pt")
     args = ap.parse_args()
     out_dir = ARTIFACTS / args.model
 
@@ -137,8 +138,16 @@ def main() -> None:
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=args.lr, total_steps=steps, pct_start=0.1)
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    history, best = [], -1.0
-    for epoch in range(1, args.epochs + 1):
+    history, best, first = [], -1.0, 1
+    if args.resume:
+        state = torch.load(out_dir / "last.pt", map_location=dev)
+        model.load_state_dict(state["model"])
+        opt.load_state_dict(state["opt"])
+        sched.load_state_dict(state["sched"])
+        history, best, first = state["history"], state["best"], state["epoch"] + 1
+        print(f"resumed after epoch {state['epoch']}", flush=True)
+
+    for epoch in range(first, args.epochs + 1):
         model.train()
         start, running = time.time(), 0.0
         for x, y in train_dl:
@@ -169,6 +178,10 @@ def main() -> None:
             flush=True,
         )
         (out_dir / "history.json").write_text(json.dumps(history, indent=1))
+        # Full state every epoch, so a stopped or interrupted run loses at most one epoch.
+        last = {"model": model.state_dict(), "opt": opt.state_dict(), "sched": sched.state_dict(), "epoch": epoch, "history": history, "best": best}
+        torch.save(last, out_dir / "last.tmp")
+        (out_dir / "last.tmp").replace(out_dir / "last.pt")
 
 
 if __name__ == "__main__":
