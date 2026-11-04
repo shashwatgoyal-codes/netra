@@ -1,0 +1,18 @@
+# ML
+ml/.venv/
+ml/data/
+ml/artifacts/
+__pycache__/
+
+# Web
+web/node_modules/
+web/.next/
+web/out/
+web/next-env.d.ts
+web/public/ort/
+*.tsbuildinfo
+
+.DS_Store
+logs/
+data_download.log
+ml/logs_pipeline.out
