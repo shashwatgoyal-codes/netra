@@ -15,4 +15,4 @@ web/public/ort/
 .DS_Store
 logs/
 data_download.log
-ml/logs_pipeline.out
+ml/logs_*.out
