@@ -7,11 +7,15 @@ set -uo pipefail
 cd "$(dirname "$0")"
 
 if [[ "${1:-}" == "resume" ]]; then
-  xargs kill -CONT < paused.list && echo "resumed $(wc -l < paused.list | tr -d ' ') processes"
+  resumed=0
+  while read -r p; do kill -CONT "$p" 2>/dev/null && resumed=$((resumed + 1)); done < paused.list
+  echo "resumed $resumed of $(wc -l < paused.list | tr -d ' ') processes (the rest had already exited)"
   exit
 fi
 
-pids=$(pgrep -f 'run_all.sh|train.py --model|export.py --model|evaluate.py --model|external.py --model' || true)
+# Anchored to the start of the command line, so a shell that merely mentions
+# run_all.sh (a scheduler, a grep) is not frozen along with the pipeline.
+pids=$(pgrep -f '^bash \./run_all\.sh|^(uv run )?[^ ]*python3? (train|export|evaluate|external)\.py --model' || true)
 children=""
 for p in $pids; do children="$children $(pgrep -P "$p" || true)"; done
 printf '%s\n' $pids $children | grep -v '^$' | sort -u > paused.list
