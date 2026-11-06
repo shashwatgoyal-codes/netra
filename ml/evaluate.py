@@ -45,9 +45,13 @@ TARGET_SENSITIVITY = 0.90
 
 
 def run(sess: ort.InferenceSession, ids: list[str]) -> tuple[np.ndarray, list[np.ndarray]]:
+    return run_paths(sess, [RAW / "train_images" / f"{id_code}.png" for id_code in ids])
+
+
+def run_paths(sess: ort.InferenceSession, paths: list) -> tuple[np.ndarray, list[np.ndarray]]:
     probs, cams = [], []
-    for id_code in tqdm(ids, desc="infer"):
-        img = crop_retina(Image.open(RAW / "train_images" / f"{id_code}.png"))
+    for path in tqdm(paths, desc="infer"):
+        img = crop_retina(Image.open(path))
         p, c = sess.run(None, {"image": to_tensor_array(img)[None]})
         probs.append(p[0])
         cams.append(c[0])

@@ -16,6 +16,13 @@ type Metrics = {
   referral: { auc: number; sensitivity: number; specificity: number; ppv: number; npv: number; tp: number; tn: number; fp: number; fn: number };
   grading: { qwk: number; accuracy: number; confusion: number[][] };
   roc: { fpr: number[]; tpr: number[] };
+  external?: {
+    dataset: string;
+    n: number;
+    n_referable: number;
+    referral: { auc: number; sensitivity: number; specificity: number };
+    grading: { qwk: number };
+  };
 };
 
 type Meta = { grades: string[]; version: string; inputSize: number };
@@ -91,6 +98,47 @@ export default async function AboutPage() {
         ))}
       </div>
 
+      {m.external && (
+        <section className="card space-y-3 p-4">
+          <div>
+            <h2 className="font-semibold">At a hospital it has never seen</h2>
+            <p className="mt-1 text-sm text-muted">
+              {m.external.dataset}: {m.external.n} photos, {m.external.n_referable} referable. Different country, cameras and graders. No retraining and no
+              threshold changes. This is the closest check here to what a new clinic would get.
+            </p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[22rem] text-sm">
+              <thead>
+                <tr className="text-left text-xs text-muted">
+                  <th className="pb-2 font-medium" />
+                  <th className="pb-2 font-medium">Sensitivity</th>
+                  <th className="pb-2 font-medium">Specificity</th>
+                  <th className="pb-2 font-medium">AUC</th>
+                  <th className="pb-2 font-medium">Grading κ</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono">
+                <tr>
+                  <td className="py-1 font-sans text-muted">APTOS test (India)</td>
+                  <td>{pct(r.sensitivity)}</td>
+                  <td>{pct(r.specificity)}</td>
+                  <td>{r.auc.toFixed(3)}</td>
+                  <td>{m.grading.qwk.toFixed(3)}</td>
+                </tr>
+                <tr>
+                  <td className="py-1 font-sans text-muted">DDR (China, external)</td>
+                  <td>{pct(m.external.referral.sensitivity)}</td>
+                  <td>{pct(m.external.referral.specificity)}</td>
+                  <td>{m.external.referral.auc.toFixed(3)}</td>
+                  <td>{m.external.grading.qwk.toFixed(3)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="card grid gap-6 p-4 sm:grid-cols-2">
         <div>
           <h2 className="font-semibold">Referral decision</h2>
@@ -152,7 +200,10 @@ export default async function AboutPage() {
       <section className="card space-y-2 p-4 text-sm">
         <h2 className="font-semibold">Limits</h2>
         <ul className="list-disc space-y-1 pl-5 text-muted">
-          <li>Trained on photos from one hospital network in India (APTOS 2019). Other cameras, smartphone adapters and populations may perform differently.</li>
+          <li>
+            Trained on photos from one hospital network in India (APTOS 2019). {m.external ? "The external test above shows how much that matters. " : ""}Local
+            cameras, smartphone adapters and populations need their own validation.
+          </li>
           <li>Not validated in a prospective clinical study. It is a screening aid. A trained grader or ophthalmologist must confirm referrals.</li>
           <li>Does not detect other eye disease (glaucoma, cataract, macular degeneration). It does not grade macular edema separately.</li>
           <li>Ungradable photos (blurred, dark, poorly centred) reduce accuracy. The app warns, but cannot always tell.</li>
