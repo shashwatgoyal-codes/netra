@@ -33,7 +33,7 @@ from common import (
     GRADES,
     INPUT_SIZE,
     MEAN,
-    RAW,
+    DATA,
     REFERABLE_FROM,
     SPLITS,
     STD,
@@ -44,8 +44,9 @@ from common import (
 TARGET_SENSITIVITY = 0.90
 
 
-def run(sess: ort.InferenceSession, ids: list[str]) -> tuple[np.ndarray, list[np.ndarray]]:
-    return run_paths(sess, [RAW / "train_images" / f"{id_code}.png" for id_code in ids])
+def run(sess: ort.InferenceSession, frame: pd.DataFrame) -> tuple[np.ndarray, list[np.ndarray]]:
+    """Infer on the original files listed in splits.csv (raw, relative to DATA)."""
+    return run_paths(sess, [DATA / raw for raw in frame.raw])
 
 
 def run_paths(sess: ort.InferenceSession, paths: list) -> tuple[np.ndarray, list[np.ndarray]]:
@@ -89,11 +90,11 @@ def referral_stats(pred: np.ndarray, is_referable: np.ndarray) -> dict:
     }
 
 
-def heatmap_examples(ids, labels, probs, cams, path) -> None:
+def heatmap_examples(paths, labels, probs, cams, path) -> None:
     picks = [i for g in range(len(GRADES)) for i in np.nonzero(labels == g)[0][:1]]
     fig, axes = plt.subplots(2, len(picks), figsize=(3.2 * len(picks), 6.6))
     for col, i in enumerate(picks):
-        img = crop_retina(Image.open(RAW / "train_images" / f"{ids[i]}.png")).resize((INPUT_SIZE, INPUT_SIZE))
+        img = crop_retina(Image.open(paths[i])).resize((INPUT_SIZE, INPUT_SIZE))
         pred = int(probs[i].argmax())
         cam = np.maximum(cams[i][pred], 0)
         cam = cam / cam.max() if cam.max() > 0 else cam
@@ -123,12 +124,12 @@ def main() -> None:
     sess = ort.InferenceSession(str(onnx_file), providers=["CPUExecutionProvider"])
 
     val = splits[splits.split == "val"]
-    val_probs, _ = run(sess, val.id_code.tolist())
+    val_probs, _ = run(sess, val)
     threshold = pick_threshold(val_probs, val.diagnosis.to_numpy() >= REFERABLE_FROM)
 
     test = splits[splits.split == "test"]
     labels = test.diagnosis.to_numpy()
-    probs, cams = run(sess, test.id_code.tolist())
+    probs, cams = run(sess, test)
     ref_prob = probs[:, REFERABLE_FROM:].sum(1)
     is_ref = labels >= REFERABLE_FROM
     fpr, tpr, _ = roc_curve(is_ref, ref_prob)
@@ -168,7 +169,7 @@ def main() -> None:
         "version": f"{args.model}-{args.variant}-{date.today():%Y%m%d}",
     }
     (out_dir / "model-meta.json").write_text(json.dumps(meta, indent=1))
-    heatmap_examples(test.id_code.tolist(), labels, probs, cams, out_dir / "heatmaps.png")
+    heatmap_examples([DATA / r for r in test.raw], labels, probs, cams, out_dir / "heatmaps.png")
 
     r, g = metrics["referral"], metrics["grading"]
     print(f"threshold {threshold:.3f} (chosen on val for sensitivity >= {TARGET_SENSITIVITY:.0%})")

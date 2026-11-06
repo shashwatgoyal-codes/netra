@@ -56,7 +56,9 @@ def transforms(train: bool):
             T.RandomHorizontalFlip(),
             T.RandomVerticalFlip(),
             T.RandomRotation(180),
-            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.1),
+            # Cameras differ most in colour balance and exposure; vary both so the
+            # model can't lean on one device's look.
+            T.ColorJitter(brightness=0.3, contrast=0.3, saturation=0.25, hue=0.04),
             *tail,
         ]
     )
