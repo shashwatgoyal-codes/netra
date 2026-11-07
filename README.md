@@ -1,6 +1,6 @@
 # Netra — offline diabetic retinopathy screening
 
-Smart India Hackathon 2026, problem statement **SIH26038** (MathWorks): *Explainable AI for Diabetic Retinopathy Screening in Rural India.*
+A personal project, built on a real problem from Smart India Hackathon 2026: statement **SIH26038** (MathWorks), *Explainable AI for Diabetic Retinopathy Screening in Rural India.*
 
 India has over 77 million adults with diabetes and roughly one ophthalmologist per 100,000 rural people. Early detection prevents most vision loss from diabetic retinopathy (DR), but screening needs specialists who aren't there. Netra lets a health worker photograph the retina, get a referral decision with an explanation in seconds, and track the referral. Everything runs on a low-cost phone, with no internet connection.
 
