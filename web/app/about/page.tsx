@@ -6,6 +6,7 @@ import { join } from "node:path";
 
 type Metrics = {
   model: string;
+  train_sources?: string[];
   variant: string;
   modelMB: number;
   dataset: string;
@@ -17,12 +18,13 @@ type Metrics = {
   grading: { qwk: number; accuracy: number; confusion: number[][] };
   roc: { fpr: number[]; tpr: number[] };
   external?: {
+    key: string;
     dataset: string;
     n: number;
     n_referable: number;
     referral: { auc: number; sensitivity: number; specificity: number };
     grading: { qwk: number };
-  };
+  }[];
 };
 
 type Meta = { grades: string[]; version: string; inputSize: number };
@@ -98,13 +100,15 @@ export default async function AboutPage() {
         ))}
       </div>
 
-      {m.external && (
+      {m.external && m.external.length > 0 && (
         <section className="card space-y-3 p-4">
           <div>
-            <h2 className="font-semibold">At a hospital it has never seen</h2>
+            <h2 className="font-semibold">Beyond the training data</h2>
             <p className="mt-1 text-sm text-muted">
-              {m.external.dataset}: {m.external.n} photos, {m.external.n_referable} referable. Different country, cameras and graders. No retraining and no
-              threshold changes. This is the closest check here to what a new clinic would get.
+              The same model and threshold on photos from other hospitals, cameras and graders, with no retuning. This is the closest check here to what a
+              new clinic would get.
+              {m.train_sources?.includes("ddr") &&
+                " DDR is also in the training data, so its row is held-out photos from hospitals the model has seen. IDRiD and Messidor-2 are the truly new sites."}
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -120,19 +124,31 @@ export default async function AboutPage() {
               </thead>
               <tbody className="font-mono">
                 <tr>
-                  <td className="py-1 font-sans text-muted">APTOS test (India)</td>
+                  <td className="py-1 font-sans text-muted">
+                    APTOS held-out test (Aravind, India)
+                    <span className="block text-xs">
+                      {m.n_test} photos, {m.n_referable} referable
+                    </span>
+                  </td>
                   <td>{pct(r.sensitivity)}</td>
                   <td>{pct(r.specificity)}</td>
                   <td>{r.auc.toFixed(3)}</td>
                   <td>{m.grading.qwk.toFixed(3)}</td>
                 </tr>
-                <tr>
-                  <td className="py-1 font-sans text-muted">DDR (China, external)</td>
-                  <td>{pct(m.external.referral.sensitivity)}</td>
-                  <td>{pct(m.external.referral.specificity)}</td>
-                  <td>{m.external.referral.auc.toFixed(3)}</td>
-                  <td>{m.external.grading.qwk.toFixed(3)}</td>
-                </tr>
+                {m.external.map((e) => (
+                  <tr key={e.key}>
+                    <td className="py-1 font-sans text-muted">
+                      {e.dataset}
+                      <span className="block text-xs">
+                        {e.n} photos, {e.n_referable} referable
+                      </span>
+                    </td>
+                    <td>{pct(e.referral.sensitivity)}</td>
+                    <td>{pct(e.referral.specificity)}</td>
+                    <td>{e.referral.auc.toFixed(3)}</td>
+                    <td>{e.grading.qwk.toFixed(3)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

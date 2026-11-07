@@ -140,6 +140,7 @@ def main() -> None:
         "variant": args.variant,
         "modelMB": round(onnx_file.stat().st_size / 1e6, 1),
         "dataset": "APTOS 2019 (Aravind Eye Hospital), held-out test split",
+        "train_sources": sorted(splits[splits.split == "train"].get("source", pd.Series(["aptos"])).unique().tolist()),
         "n_test": int(len(test)),
         "n_referable": int(is_ref.sum()),
         "threshold": threshold,
