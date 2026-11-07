@@ -1,5 +1,7 @@
 # Netra
 
+![Netra on a phone: a referral decision with a heatmap over the retina](demo/netra-thumbnail.png)
+
 **Offline diabetic retinopathy screening on a low-cost phone, with AI that shows its reasoning.**
 
 **Live app:** https://netra-three-gamma.vercel.app · **Demo video (1:30):** [`demo/netra-demo.mp4`](demo/netra-demo.mp4)
