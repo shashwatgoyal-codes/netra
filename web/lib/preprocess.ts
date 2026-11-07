@@ -93,6 +93,78 @@ function assessQuality(square: HTMLCanvasElement, darkThreshold: number): ImageQ
   return { fundusCoverage, sharpness, ok: issues.length === 0, issues };
 }
 
+/**
+ * Square RGBA resize matching PIL's Image.resize(..., BILINEAR), which the model
+ * was evaluated with. When shrinking, PIL widens the triangle filter by the scale
+ * factor so every source pixel contributes; canvas drawImage smoothing is
+ * browser-defined and drifted the model's output by up to 10 points.
+ */
+function resizeLikePil(src: Uint8ClampedArray, from: number, to: number): Uint8ClampedArray<ArrayBuffer> {
+  const scale = from / to;
+  const support = Math.max(scale, 1);
+  // Per output coordinate: first source index and normalized weights.
+  const starts = new Int32Array(to);
+  const weights: Float32Array[] = [];
+  for (let i = 0; i < to; i++) {
+    const center = (i + 0.5) * scale;
+    const lo = Math.max(0, Math.floor(center - support + 0.5));
+    const hi = Math.min(from, Math.floor(center + support + 0.5));
+    const w = new Float32Array(hi - lo);
+    let total = 0;
+    for (let j = lo; j < hi; j++) {
+      const t = Math.max(0, 1 - Math.abs((j - center + 0.5) / support));
+      w[j - lo] = t;
+      total += t;
+    }
+    for (let k = 0; k < w.length; k++) w[k] /= total || 1;
+    starts[i] = lo;
+    weights.push(w);
+  }
+
+  // Horizontal pass (from x from -> to x from), rounded to 8 bits like PIL.
+  const mid = new Uint8ClampedArray(to * from * 4);
+  for (let y = 0; y < from; y++) {
+    for (let x = 0; x < to; x++) {
+      const w = weights[x];
+      let r = 0,
+        g = 0,
+        b = 0;
+      let p = (y * from + starts[x]) * 4;
+      for (let k = 0; k < w.length; k++, p += 4) {
+        r += src[p] * w[k];
+        g += src[p + 1] * w[k];
+        b += src[p + 2] * w[k];
+      }
+      const o = (y * to + x) * 4;
+      mid[o] = Math.round(r);
+      mid[o + 1] = Math.round(g);
+      mid[o + 2] = Math.round(b);
+    }
+  }
+  // Vertical pass.
+  const out = new Uint8ClampedArray(new ArrayBuffer(to * to * 4));
+  for (let y = 0; y < to; y++) {
+    const w = weights[y];
+    for (let x = 0; x < to; x++) {
+      let r = 0,
+        g = 0,
+        b = 0;
+      let p = (starts[y] * to + x) * 4;
+      for (let k = 0; k < w.length; k++, p += to * 4) {
+        r += mid[p] * w[k];
+        g += mid[p + 1] * w[k];
+        b += mid[p + 2] * w[k];
+      }
+      const o = (y * to + x) * 4;
+      out[o] = Math.round(r);
+      out[o + 1] = Math.round(g);
+      out[o + 2] = Math.round(b);
+      out[o + 3] = 255;
+    }
+  }
+  return out;
+}
+
 export function prepare(img: ImageBitmap, meta: ModelMeta): Prepared {
   const box = retinaBox(img, meta.darkThreshold);
   const side = Math.max(box.w, box.h);
@@ -103,12 +175,10 @@ export function prepare(img: ImageBitmap, meta: ModelMeta): Prepared {
   sctx.drawImage(img, box.x, box.y, box.w, box.h, Math.floor((side - box.w) / 2), Math.floor((side - box.h) / 2), box.w, box.h);
 
   const size = meta.inputSize;
+  const full = sctx.getImageData(0, 0, side, side).data;
+  const data = resizeLikePil(full, side, size);
   const input = canvas(size, size);
-  const ictx = input.getContext("2d", { willReadFrequently: true })!;
-  ictx.imageSmoothingEnabled = true;
-  ictx.imageSmoothingQuality = "high";
-  ictx.drawImage(square, 0, 0, size, size);
-  const { data } = ictx.getImageData(0, 0, size, size);
+  input.getContext("2d")!.putImageData(new ImageData(data, size, size), 0, 0);
 
   const plane = size * size;
   const tensor = new Float32Array(3 * plane);
