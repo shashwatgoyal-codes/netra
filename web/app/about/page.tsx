@@ -40,6 +40,17 @@ async function load<T>(file: string): Promise<T> {
 
 const pct = (x: number) => `${(x * 100).toFixed(1)}%`;
 
+const STAT_NAMES = ["Sensitivity", "Specificity", "AUC", "Grading κ"] as const;
+
+function statRow(sens: number, spec: number, auc: number, qwk: number): [string, string][] {
+  return [
+    ["Sensitivity", pct(sens)],
+    ["Specificity", pct(spec)],
+    ["AUC", auc.toFixed(3)],
+    ["Grading κ", qwk.toFixed(3)],
+  ];
+}
+
 function Roc({ m }: { m: Metrics }) {
   const s = 240;
   const pts = m.roc.fpr.map((f, i) => `${(f * s).toFixed(1)},${((1 - m.roc.tpr[i]) * s).toFixed(1)}`).join(" ");
@@ -74,6 +85,20 @@ export default async function AboutPage() {
     { label: "Grading κ", value: m.grading.qwk.toFixed(3), hint: "Quadratic weighted kappa, 5 grades" },
   ];
   const maxCell = Math.max(...m.grading.confusion.flat());
+  const sites = [
+    {
+      key: "aptos",
+      label: "APTOS held-out test (Aravind, India)",
+      detail: `${m.n_test} photos, ${m.n_referable} referable`,
+      stats: statRow(r.sensitivity, r.specificity, r.auc, m.grading.qwk),
+    },
+    ...(m.external ?? []).map((e) => ({
+      key: e.key,
+      label: e.dataset,
+      detail: `${e.n} photos, ${e.n_referable} referable`,
+      stats: statRow(e.referral.sensitivity, e.referral.specificity, e.referral.auc, e.grading.qwk),
+    })),
+  ];
 
   return (
     <div className="space-y-6">
@@ -111,47 +136,48 @@ export default async function AboutPage() {
                 " DDR is also in the training data, so its row is held-out photos from hospitals the model has seen. IDRiD and Messidor-2 are the truly new sites."}
             </p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[22rem] text-sm">
-              <thead>
-                <tr className="text-left text-xs text-muted">
-                  <th className="pb-2 font-medium" />
-                  <th className="pb-2 font-medium">Sensitivity</th>
-                  <th className="pb-2 font-medium">Specificity</th>
-                  <th className="pb-2 font-medium">AUC</th>
-                  <th className="pb-2 font-medium">Grading κ</th>
-                </tr>
-              </thead>
-              <tbody className="font-mono">
-                <tr>
-                  <td className="py-1 font-sans text-muted">
-                    APTOS held-out test (Aravind, India)
-                    <span className="block text-xs">
-                      {m.n_test} photos, {m.n_referable} referable
-                    </span>
-                  </td>
-                  <td>{pct(r.sensitivity)}</td>
-                  <td>{pct(r.specificity)}</td>
-                  <td>{r.auc.toFixed(3)}</td>
-                  <td>{m.grading.qwk.toFixed(3)}</td>
-                </tr>
-                {m.external.map((e) => (
-                  <tr key={e.key}>
-                    <td className="py-1 font-sans text-muted">
-                      {e.dataset}
-                      <span className="block text-xs">
-                        {e.n} photos, {e.n_referable} referable
-                      </span>
-                    </td>
-                    <td>{pct(e.referral.sensitivity)}</td>
-                    <td>{pct(e.referral.specificity)}</td>
-                    <td>{e.referral.auc.toFixed(3)}</td>
-                    <td>{e.grading.qwk.toFixed(3)}</td>
-                  </tr>
+          {/* Phones: one card per test set. Wider screens: a table. */}
+          <ul className="space-y-2 sm:hidden">
+            {sites.map((s) => (
+              <li key={s.key} className="rounded-xl bg-surface-2 p-3">
+                <p className="text-sm font-medium">{s.label}</p>
+                <p className="text-xs text-muted">{s.detail}</p>
+                <dl className="mt-2 grid grid-cols-4 gap-2 text-center">
+                  {s.stats.map(([name, value]) => (
+                    <div key={name}>
+                      <dt className="text-[11px] text-muted">{name}</dt>
+                      <dd className="font-mono text-sm font-semibold">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </li>
+            ))}
+          </ul>
+          <table className="hidden w-full text-sm sm:table">
+            <thead>
+              <tr className="text-left text-xs text-muted">
+                <th className="pb-2 font-medium" />
+                {STAT_NAMES.map((n) => (
+                  <th key={n} className="pb-2 font-medium">
+                    {n}
+                  </th>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </tr>
+            </thead>
+            <tbody className="font-mono">
+              {sites.map((s) => (
+                <tr key={s.key}>
+                  <td className="py-1 font-sans text-muted">
+                    {s.label}
+                    <span className="block text-xs">{s.detail}</span>
+                  </td>
+                  {s.stats.map(([name, value]) => (
+                    <td key={name}>{value}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
