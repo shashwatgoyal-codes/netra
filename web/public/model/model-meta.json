@@ -1,0 +1,28 @@
+{
+ "inputSize": 384,
+ "mean": [
+  0.485,
+  0.456,
+  0.406
+ ],
+ "std": [
+  0.229,
+  0.224,
+  0.225
+ ],
+ "darkThreshold": 10,
+ "grades": [
+  "No DR",
+  "Mild",
+  "Moderate",
+  "Severe",
+  "Proliferative DR"
+ ],
+ "referableFrom": 2,
+ "threshold": 0.4804975092411041,
+ "camSize": [
+  12,
+  12
+ ],
+ "version": "dinov3-f16w-20261107"
+}

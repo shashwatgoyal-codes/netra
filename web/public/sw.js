@@ -1,6 +1,6 @@
 // Offline support. Bump VERSION whenever the model or app shell changes so
 // clinics pick up the new files the next time they are online.
-const VERSION = "netra-v1";
+const VERSION = "netra-v3";
 const PRECACHE = [
   "/",
   "/queue/",
