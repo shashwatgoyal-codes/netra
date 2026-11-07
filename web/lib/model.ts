@@ -15,6 +15,7 @@ export type ModelMeta = {
   threshold: number;
   camSize: [number, number];
   version: string;
+  modelBytes?: number; // uncompressed size, for download progress (servers may compress)
 };
 
 export type Prediction = {
@@ -30,9 +31,59 @@ export type Prediction = {
 export const MODEL_URL = "/model/netra.onnx";
 export const META_URL = "/model/model-meta.json";
 const ORT_URL = "/ort/ort.wasm.min.mjs";
+// The page keeps the model in its own cache, keyed by model version, so it is
+// downloaded exactly once (the service worker leaves it alone; see public/sw.js).
+export const MODEL_CACHE = "netra-model";
 
 type Loaded = { ort: typeof ORT; session: ORT.InferenceSession; meta: ModelMeta; backend: string };
 let loading: Promise<Loaded> | null = null;
+
+/** Download progress, 0..1, or null when the model came from the device cache. */
+type ProgressListener = (fraction: number | null) => void;
+const listeners = new Set<ProgressListener>();
+export function onModelProgress(listener: ProgressListener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+const report = (fraction: number | null) => listeners.forEach((l) => l(fraction));
+
+async function modelBytes(meta: ModelMeta): Promise<Uint8Array> {
+  const key = `${MODEL_URL}?v=${encodeURIComponent(meta.version)}`;
+  const cache = await caches.open(MODEL_CACHE).catch(() => null);
+  const hit = await cache?.match(key);
+  if (hit) {
+    report(null);
+    return new Uint8Array(await hit.arrayBuffer());
+  }
+
+  const res = await fetch(MODEL_URL);
+  if (!res.ok || !res.body) throw new Error(`model download failed (${res.status})`);
+  // The body arrives decompressed, so progress is measured against the
+  // uncompressed size from the metadata, not the (compressed) Content-Length.
+  const total = meta.modelBytes ?? 0;
+  const chunks: Uint8Array[] = [];
+  const reader = res.body.getReader();
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    received += value.length;
+    if (total) report(Math.min(received / total, 1));
+  }
+  const model = new Uint8Array(received);
+  let at = 0;
+  for (const c of chunks) {
+    model.set(c, at);
+    at += c.length;
+  }
+
+  if (cache) {
+    await cache.put(key, new Response(model.slice(), { headers: { "content-type": "application/octet-stream" } })).catch(() => {});
+    for (const old of await cache.keys()) if (!old.url.endsWith(key)) await cache.delete(old);
+  }
+  return model;
+}
 
 async function load(): Promise<Loaded> {
   // CPU (WASM) build only: its runtime is 15 MB against 29 MB for the WebGPU
@@ -46,8 +97,7 @@ async function load(): Promise<Loaded> {
   ort.env.wasm.proxy = true;
 
   const meta: ModelMeta = await fetch(META_URL).then((r) => r.json());
-  const buffer: ArrayBuffer = await (await fetch(MODEL_URL)).arrayBuffer();
-  const bytes = new Uint8Array(buffer);
+  const bytes = await modelBytes(meta);
   const session = await ort.InferenceSession.create(bytes, { executionProviders: ["wasm"], graphOptimizationLevel: "all" });
   return { ort, session, meta, backend: "wasm" };
 }

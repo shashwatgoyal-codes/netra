@@ -4,6 +4,7 @@ Usage: uv run python ship.py --model dinov3 [--variant f16w]
 """
 
 import argparse
+import json
 import re
 import shutil
 
@@ -26,8 +27,14 @@ def main() -> None:
     shutil.copy(onnx_file, dest / "netra.onnx")
     for name in ("model-meta.json", "metrics.json"):
         shutil.copy(report / name, dest / name)
+    # The app shows download progress against the uncompressed size; servers
+    # may compress the file, so the response's Content-Length can't be used.
+    meta = json.loads((dest / "model-meta.json").read_text())
+    meta["modelBytes"] = (dest / "netra.onnx").stat().st_size
+    (dest / "model-meta.json").write_text(json.dumps(meta, indent=1))
 
-    # A new cache name makes installed apps fetch the new model once online.
+    # A new cache name makes installed apps refresh the app shell once online;
+    # the app itself re-downloads the model when its version changes.
     sw = WEB / "public" / "sw.js"
     text = sw.read_text()
     n = int(re.search(r'VERSION = "netra-v(\d+)"', text).group(1))

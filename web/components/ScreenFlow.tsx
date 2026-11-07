@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import ResultView from "@/components/ResultView";
 import { saveScreening, type Eye, type Patient, type Screening } from "@/lib/db";
-import { loadModel, predict, type ModelMeta, type Prediction } from "@/lib/model";
+import { loadModel, onModelProgress, predict, type ModelMeta, type Prediction } from "@/lib/model";
 import { loadImage, prepare, type Prepared } from "@/lib/preprocess";
 
-type ModelState = { status: "loading" } | { status: "ready"; meta: ModelMeta } | { status: "error"; message: string };
+// progress: 0..1 while the model downloads (first visit only), null otherwise.
+type ModelState = { status: "loading"; progress: number | null } | { status: "ready"; meta: ModelMeta } | { status: "error"; message: string };
 
 const EMPTY_PATIENT: Patient = { name: "", patientId: "", age: null, sex: "", diabetesYears: null, phone: "" };
 
@@ -21,7 +22,7 @@ function num(v: string): number | null {
 }
 
 export default function ScreenFlow() {
-  const [model, setModel] = useState<ModelState>({ status: "loading" });
+  const [model, setModel] = useState<ModelState>({ status: "loading", progress: null });
   const [patient, setPatient] = useState<Patient>(EMPTY_PATIENT);
   const [eye, setEye] = useState<Eye>("right");
   const [prepared, setPrepared] = useState<Prepared | null>(null);
@@ -34,9 +35,13 @@ export default function ScreenFlow() {
   const galleryRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const stop = onModelProgress((progress) => setModel((m) => (m.status === "loading" ? { status: "loading", progress } : m)));
     loadModel()
       .then(({ meta }) => setModel({ status: "ready", meta }))
       .catch((e) => setModel({ status: "error", message: e instanceof Error ? e.message : String(e) }));
+    return () => {
+      stop();
+    };
   }, []);
 
   const set = <K extends keyof Patient>(k: K, v: Patient[K]) => setPatient((p) => ({ ...p, [k]: v }));
@@ -253,6 +258,20 @@ export default function ScreenFlow() {
 }
 
 function ModelBadge({ state }: { state: ModelState }) {
+  if (state.status === "loading" && state.progress !== null) {
+    const pct = Math.round(state.progress * 100);
+    return (
+      <div className="card space-y-2 p-3 text-sm text-muted">
+        <p>
+          Downloading the AI model, one time only (56 MB)… <span className="font-mono text-ink">{pct}%</span>
+        </p>
+        <div className="h-1.5 overflow-hidden rounded-full bg-surface-2" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+          <div className="h-full rounded-full bg-accent transition-[width]" style={{ width: `${pct}%` }} />
+        </div>
+        <p className="text-xs">After this, screening works offline.</p>
+      </div>
+    );
+  }
   if (state.status === "loading")
     return <p className="card flex items-center gap-2 p-3 text-sm text-muted"><span className="h-2 w-2 animate-pulse rounded-full bg-accent" />Loading the AI model onto this device…</p>;
   if (state.status === "error")

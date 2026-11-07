@@ -24,5 +24,6 @@
   12,
   12
  ],
- "version": "dinov3-f16w-20261107"
+ "version": "dinov3-f16w-20261107",
+ "modelBytes": 55825853
 }
